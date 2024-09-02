@@ -18,7 +18,7 @@ static const float ADE7953_PREF = 154.0f;
 static const float ADE7953_UREF = 26000.0f;
 static const float ADE7953_IREF = 100000.0f;
 static const float ADE7953_WATTSEC_PREF = ADE7953_PREF * ADE7953_PREF / 3600.0f; //  = 6,58777778
-static const uint16_t ADE7953_NO_LOAD_THRESHOLD = 29196;
+static const uint16_t ADE7953_NO_LOAD_THRESHOLD = 58393;
 
 // Esphome 'active power' calculation from 'active energy' 0x31E/0x31F:
 // POW(Watt) = READVALUE (int32_t -> float) / (ADE7953_WATTSEC_PREF * time_diff_seconds) => 322W = 4240 / (6,58777778 * 2) =
@@ -83,13 +83,13 @@ void ADE7953::chip_init_() {
   this->write_u8_register16_(0x0004, 0x40);
 
   // // Setup no load detection and thresholds
-  // this->write_u32_register16_(0x0001, 0x07);                       // ADE7953_DISNOLOAD on, Disable no load detection, required before setting thresholds
+  this->write_u32_register16_(0x0001, 0x07);                       // ADE7953_DISNOLOAD on, Disable no load detection, required before setting thresholds
   this->write_u32_register16_(0x0303, ADE7953_NO_LOAD_THRESHOLD);  // AP_NOLOAD, Set no load treshold for active power, default: 0x00E419 (58393)
   // this->write_u32_register16_(0x0303, 0x00E419);  // AP_NOLOAD, Set default: 0x00E419 (58393)
   // // this->write_u32_register16_(0x0304, ADE7953_NO_LOAD_THRESHOLD);  // VAR_NOLOAD, Set no load treshold for reactive power, default: 0x00E419 (58393)
   // this->write_u32_register16_(0x0304, 0x00E419);  // VAR_NOLOAD, Set default: 0x00E419 (58393)
   // // this->write_u32_register16_(0x0305, 0x0);                        // VA_NOLOAD, Set no load treshold for apparent power, default: 0x000000
-  // this->write_u32_register16_(0x0001, 0x0);                        // ADE7953_DISNOLOAD off, Enable no load detection
+  this->write_u32_register16_(0x0001, 0x0);                        // ADE7953_DISNOLOAD off, Enable no load detection
 
   // Set gains
   this->write_u8_register16_(PGA_V_8, pga_v_);
