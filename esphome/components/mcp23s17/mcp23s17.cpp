@@ -1,5 +1,6 @@
 #include "mcp23s17.h"
 #include "esphome/core/log.h"
+#include <inttypes.h>
 
 namespace esphome {
 namespace mcp23s17 {
@@ -16,6 +17,7 @@ void MCP23S17::setup() {
   ESP_LOGCONFIG(TAG, "Setting up MCP23S17...");
   this->spi_setup();
 
+#ifdef USE_ARDUINO
   this->enable();
   uint8_t cmd = 0b01000000;
   this->transfer_byte(cmd);
@@ -30,6 +32,27 @@ void MCP23S17::setup() {
   this->transfer_byte(0b00011000);  // Enable HAEN pins for addressing
   this->disable();
 
+#endif // USE_ARDUINO
+#ifdef USE_ESP_IDF
+  uint16_t cmd = this->device_opcode_;
+  uint64_t addr = mcp23x17_base::MCP23X17_IOCONA;
+  uint8_t dlen = 1;
+  uint8_t buf[dlen] = {0};
+  buf[0] = 0b00011000; // Enable HAEN pins for addressing
+
+  this->enable();
+  this->write_cmd_addr_data(8, cmd, 8, addr, (uint8_t *) &buf, dlen, 1);
+  this->disable();
+
+  cmd = this->device_opcode_ & 0x8;
+  addr = mcp23x17_base::MCP23X17_IOCONA;
+  buf[0] = 0b00011000; // Enable HAEN pins for addressing
+
+  this->enable();
+  this->write_cmd_addr_data(8, cmd, 8, addr, (uint8_t *) &buf, dlen, 1);
+  this->disable();
+
+#endif // USE_ESP_IDF
   // Read current output register state
   this->read_reg(mcp23x17_base::MCP23X17_OLATA, &this->olat_a_);
   this->read_reg(mcp23x17_base::MCP23X17_OLATB, &this->olat_b_);
@@ -39,29 +62,68 @@ void MCP23S17::setup() {
     this->write_reg(mcp23x17_base::MCP23X17_IOCONA, 0x04);
     this->write_reg(mcp23x17_base::MCP23X17_IOCONB, 0x04);
   }
+
 }
 
 void MCP23S17::dump_config() {
   ESP_LOGCONFIG(TAG, "MCP23S17:");
   LOG_PIN("  CS Pin: ", this->cs_);
+  ESP_LOGCONFIG(TAG, "  SPI Mode:      %d",   (unsigned) (this->mode_));
+  if (this->data_rate_ < 1000000) {
+    ESP_LOGCONFIG(TAG, "  SPI Data rate: %" PRId32 "kHz", this->data_rate_ / 1000);
+  } else {
+    ESP_LOGCONFIG(TAG, "  SPI Data rate: %" PRId32 "MHz", this->data_rate_ / 1000000);
+  }
+  ESP_LOGD(TAG, "SPI Debug:");
+  ESP_LOGD(TAG, "  olat_a_: 0x%02X", this->olat_a_);
+  ESP_LOGD(TAG, "  olat_b_: 0x%02X", this->olat_b_);
 }
 
 bool MCP23S17::read_reg(uint8_t reg, uint8_t *value) {
+#ifdef USE_ARDUINO
   this->enable();
   this->transfer_byte(this->device_opcode_ | 1);
   this->transfer_byte(reg);
   *value = this->transfer_byte(0xFF);
   this->disable();
+#endif // USE_ARDUINO
+#ifdef USE_ESP_IDF
+  uint16_t cmd = (this->device_opcode_ | 1);
+  uint64_t addr = reg;
+  uint8_t dlen = 1;
+  uint8_t buf[dlen] = {0};
+
+  this->enable();
+  this->read_cmd_addr_data(8, cmd, 8, addr, (uint8_t *) &buf, dlen, 1);
+  this->disable();
+
+  *value = buf[0];
+#endif  // USE_ESP_IDF
+
   return true;
 }
 
 bool MCP23S17::write_reg(uint8_t reg, uint8_t value) {
+#ifdef USE_ARDUINO
   this->enable();
   this->transfer_byte(this->device_opcode_);
   this->transfer_byte(reg);
   this->transfer_byte(value);
 
   this->disable();
+#endif // USE_ARDUINO
+#ifdef USE_ESP_IDF
+  uint16_t cmd = this->device_opcode_;
+  uint64_t addr = reg;
+  uint8_t dlen = 1;
+  uint8_t buf[dlen] = {0};
+  buf[0] = value;
+
+  this->enable();
+  this->write_cmd_addr_data(8, cmd, 8, addr, (uint8_t *) &buf, dlen, 1);
+  this->disable();
+#endif  // USE_ESP_IDF
+
   return true;
 }
 
