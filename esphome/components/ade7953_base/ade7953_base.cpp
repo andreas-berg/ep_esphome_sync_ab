@@ -59,90 +59,94 @@ void ADE7953::setup() {
 
 #endif // USE_GPTIMER
 
-  // The chip might take up to 100ms to initialise
-  this->set_timeout(100, [this]() {
-    // this->write_u8_register16_(0x0010, 0x04);
-    this->write_u8_register16_(0x00FE, 0xAD);    // Unlock
-    this->write_u16_register16_(0x0120, 0x0030); // see: ADE7953 Data Sheet Rev. C | Page 18 of 72 | ADE7953 POWER-UP PROCEDURE
-    // Setup LINE CYCLE ACCUMULATION MODE
-    // 1. PFMODE (bit 3) = 1 in CONFIG (0x102)
-    // 0b 10000000 00000100 = 0x8004 = default
-    // 0b 10000000 00001100 = 0x800C = default + bit3
-    this->write_u16_register16_(0x0102, 0x800C);
-    //this->write_u16_register16_(0x0102, 0x8004);
-    // 2. Enable line cycle accumulation mode, xLWATT and xLVA to 1 on LCYCMODE (0x004)
-    // 0b01000000 = 0x40 = default
-    // 0b01111111 = 0x7F = enabled on both channels for xLWATT, xLVA and xLVAR
-    // this->write_u8_register16_(0x0004, 0x7F);
-    this->write_u8_register16_(0x0004, 0x40);
+  this->chip_init_();
 
-    // // Setup no load detection and thresholds
-    // this->write_u32_register16_(0x0001, 0x07);                       // ADE7953_DISNOLOAD on, Disable no load detection, required before setting thresholds
-    // // this->write_u32_register16_(0x0303, ADE7953_NO_LOAD_THRESHOLD);  // AP_NOLOAD, Set no load treshold for active power, default: 0x00E419 (58393)
-    // this->write_u32_register16_(0x0303, 0x00E419);  // AP_NOLOAD, Set default: 0x00E419 (58393)
-    // // this->write_u32_register16_(0x0304, ADE7953_NO_LOAD_THRESHOLD);  // VAR_NOLOAD, Set no load treshold for reactive power, default: 0x00E419 (58393)
-    // this->write_u32_register16_(0x0304, 0x00E419);  // VAR_NOLOAD, Set default: 0x00E419 (58393)
-    // // this->write_u32_register16_(0x0305, 0x0);                        // VA_NOLOAD, Set no load treshold for apparent power, default: 0x000000
-    // this->write_u32_register16_(0x0001, 0x0);                        // ADE7953_DISNOLOAD off, Enable no load detection
-
-    // Set gains
-    this->write_u8_register16_(PGA_V_8, pga_v_);
-    this->write_u8_register16_(PGA_IA_8, pga_ia_);
-    this->write_u8_register16_(PGA_IB_8, pga_ib_);
-    this->write_u32_register16_(AVGAIN_32, vgain_);
-    this->write_u32_register16_(AIGAIN_32, aigain_);
-    this->write_u32_register16_(BIGAIN_32, bigain_);
-    this->write_u32_register16_(AWGAIN_32, awgain_);
-    this->write_u32_register16_(BWGAIN_32, bwgain_);
-
-    // IRMSOS
-    // this->write_s32_register16_(0x0386, 0xF7D6); // AIRMSOS
-    // this->write_s32_register16_(0x0392, 0xF7D6); // BIRMSOS
-
-    // Read back gains for debugging
-    this->read_u8_register16_(PGA_V_8, &pga_v_);
-    this->read_u8_register16_(PGA_IA_8, &pga_ia_);
-    this->read_u8_register16_(PGA_IB_8, &pga_ib_);
-    this->read_u32_register16_(AVGAIN_32, &vgain_);
-    this->read_u32_register16_(AIGAIN_32, &aigain_);
-    this->read_u32_register16_(BIGAIN_32, &bigain_);
-    this->read_u32_register16_(AWGAIN_32, &awgain_);
-    this->read_u32_register16_(BWGAIN_32, &bwgain_);
-    this->read_u32_register16_(0x0303, &ap_noload_);
-    this->read_u32_register16_(0x0304, &var_noload_);
-    this->read_u32_register16_(0x0305, &va_noload_);
-    this->read_u16_register16_(0x0102, &config_);
-    this->read_u8_register16_(0x0004, &lcycmode_);
-    this->read_u32_register16_(0x0301, &accmode_);
-    // The ACCMODE register (Address 0x201 and Address 0x301) includes two sign indication bits that show the sign of the active power of Current Channel A (APSIGN_A) and Current Channel B (APSIGN_B).
-    // initial log after boot
-    //             0x002D1400    00000000001011010001010000000000
-    // ACCMODE_32: 0x002D1000 => 00000000001011010001000000000000
-    // ACCMODE_32: 0x002D3800 => 00000000001011010011100000000000
-    //                           10987654321098765432109876543210
-    //                            3         2         1         0
-    // 1:0  = 00 = AWATTACC => set to
-    // 3:2  = 00 = BWATTACC
-    // 5:4  = 00 = AVARACC
-    // 7:6  = 00 = BVARACC
-    // 8    = 0  = AVAACC
-    // 9    = 0  = BVAACC
-    // 10   = 0  = APSIGN_A
-    // 11   = 1  = APSIGN_B
-    // 12   = 1  = VARSIGN_A
-    // 13   = 1  = VARSIGN_B
-    // 15:14= 00 = Reserved
-    // 16   = 1  = ACTNLOAD_A
-    // 17   = 0  = VANLOAD_A
-    // 18   = 1  = VARNLOAD_A
-    // 19   = 1  = ACTNLOAD_B
-    // 20   = 0  = VANLOAD_B
-    // 21   = 1  = VARNLOAD_B
-    this->last_update_ = timestamp_();
-    this->is_setup_ = true;
-  });
+  this->last_update_ = timestamp_();
 }
 
+void ADE7953::chip_init_() {
+  // Enable ADE7953 chip communication and features
+
+  // this->write_u8_register16_(0x0010, 0x04);
+  this->write_u8_register16_(0x00FE, 0xAD);    // Unlock
+  this->write_u16_register16_(0x0120, 0x0030); // see: ADE7953 Data Sheet Rev. C | Page 18 of 72 | ADE7953 POWER-UP PROCEDURE
+  // Setup LINE CYCLE ACCUMULATION MODE
+  // 1. PFMODE (bit 3) = 1 in CONFIG (0x102)
+  // 0b 10000000 00000100 = 0x8004 = default
+  // 0b 10000000 00001100 = 0x800C = default + bit3
+  this->write_u16_register16_(0x0102, 0x800C);
+  //this->write_u16_register16_(0x0102, 0x8004);
+  // 2. Enable line cycle accumulation mode, xLWATT and xLVA to 1 on LCYCMODE (0x004)
+  // 0b01000000 = 0x40 = default
+  // 0b01111111 = 0x7F = enabled on both channels for xLWATT, xLVA and xLVAR
+  // this->write_u8_register16_(0x0004, 0x7F);
+  this->write_u8_register16_(0x0004, 0x40);
+
+  // // Setup no load detection and thresholds
+  // this->write_u32_register16_(0x0001, 0x07);                       // ADE7953_DISNOLOAD on, Disable no load detection, required before setting thresholds
+  // // this->write_u32_register16_(0x0303, ADE7953_NO_LOAD_THRESHOLD);  // AP_NOLOAD, Set no load treshold for active power, default: 0x00E419 (58393)
+  // this->write_u32_register16_(0x0303, 0x00E419);  // AP_NOLOAD, Set default: 0x00E419 (58393)
+  // // this->write_u32_register16_(0x0304, ADE7953_NO_LOAD_THRESHOLD);  // VAR_NOLOAD, Set no load treshold for reactive power, default: 0x00E419 (58393)
+  // this->write_u32_register16_(0x0304, 0x00E419);  // VAR_NOLOAD, Set default: 0x00E419 (58393)
+  // // this->write_u32_register16_(0x0305, 0x0);                        // VA_NOLOAD, Set no load treshold for apparent power, default: 0x000000
+  // this->write_u32_register16_(0x0001, 0x0);                        // ADE7953_DISNOLOAD off, Enable no load detection
+
+  // Set gains
+  this->write_u8_register16_(PGA_V_8, pga_v_);
+  this->write_u8_register16_(PGA_IA_8, pga_ia_);
+  this->write_u8_register16_(PGA_IB_8, pga_ib_);
+  this->write_u32_register16_(AVGAIN_32, vgain_);
+  this->write_u32_register16_(AIGAIN_32, aigain_);
+  this->write_u32_register16_(BIGAIN_32, bigain_);
+  this->write_u32_register16_(AWGAIN_32, awgain_);
+  this->write_u32_register16_(BWGAIN_32, bwgain_);
+
+  // IRMSOS
+  // this->write_s32_register16_(0x0386, 0xF7D6); // AIRMSOS
+  // this->write_s32_register16_(0x0392, 0xF7D6); // BIRMSOS
+
+  // Read back gains for debugging
+  this->read_u8_register16_(PGA_V_8, &pga_v_);
+  this->read_u8_register16_(PGA_IA_8, &pga_ia_);
+  this->read_u8_register16_(PGA_IB_8, &pga_ib_);
+  this->read_u32_register16_(AVGAIN_32, &vgain_);
+  this->read_u32_register16_(AIGAIN_32, &aigain_);
+  this->read_u32_register16_(BIGAIN_32, &bigain_);
+  this->read_u32_register16_(AWGAIN_32, &awgain_);
+  this->read_u32_register16_(BWGAIN_32, &bwgain_);
+  this->read_u32_register16_(0x0303, &ap_noload_);
+  this->read_u32_register16_(0x0304, &var_noload_);
+  this->read_u32_register16_(0x0305, &va_noload_);
+  this->read_u16_register16_(0x0102, &config_);
+  this->read_u8_register16_(0x0004, &lcycmode_);
+  this->read_u32_register16_(0x0301, &accmode_);
+  // The ACCMODE register (Address 0x201 and Address 0x301) includes two sign indication bits that show the sign of the active power of Current Channel A (APSIGN_A) and Current Channel B (APSIGN_B).
+  // initial log after boot
+  //             0x002D1400    00000000001011010001010000000000
+  // ACCMODE_32: 0x002D1000 => 00000000001011010001000000000000
+  // ACCMODE_32: 0x002D3800 => 00000000001011010011100000000000
+  //                           10987654321098765432109876543210
+  //                            3         2         1         0
+  // 1:0  = 00 = AWATTACC => set to
+  // 3:2  = 00 = BWATTACC
+  // 5:4  = 00 = AVARACC
+  // 7:6  = 00 = BVARACC
+  // 8    = 0  = AVAACC
+  // 9    = 0  = BVAACC
+  // 10   = 0  = APSIGN_A
+  // 11   = 1  = APSIGN_B
+  // 12   = 1  = VARSIGN_A
+  // 13   = 1  = VARSIGN_B
+  // 15:14= 00 = Reserved
+  // 16   = 1  = ACTNLOAD_A
+  // 17   = 0  = VANLOAD_A
+  // 18   = 1  = VARNLOAD_A
+  // 19   = 1  = ACTNLOAD_B
+  // 20   = 0  = VANLOAD_B
+  // 21   = 1  = VARNLOAD_B
+  this->is_setup_ = true;
+
+}
 void ADE7953::dump_config() {
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "Voltage Sensor", this->voltage_sensor_);
@@ -174,7 +178,7 @@ void ADE7953::dump_config() {
   ESP_LOGCONFIG(TAG, "  VA_NOLOAD_32: 0x%08jX", (uintmax_t) va_noload_);
   ESP_LOGCONFIG(TAG, "  LCYCMODE_8: 0x%X", lcycmode_);
   ESP_LOGCONFIG(TAG, "  CONFIG_8: 0x%X", config_);
-  ESP_LOGD(TAG, "Debug SPI:");
+  ESP_LOGD(TAG, "Debug chip comm:");
   uint8_t val8{0};
   this->read_u8_register16_(0x0004, &val8);
   ESP_LOGD(TAG, "  LCYCMODE : 0x0004 = 0x%02X (default: 0x40)", val8);
@@ -183,7 +187,6 @@ void ADE7953::dump_config() {
   ESP_LOGD(TAG, "  CONFIG   : 0x0102 = 0x%04X (default: 0x8004)", val16);
   uint32_t val32{0};
   this->read_u32_register16_(0x0303, &val32);
-  // ESP_LOGD(TAG, "  AP_NOLOAD: 0x0303 = 0x%08" PRIx32 " (default: 0x0000E419)", val32);
   ESP_LOGD(TAG, "  AP_NOLOAD: 0x0303 = 0x%08jX (default: 0x0000E419)", (uintmax_t) val32);
 }
 
@@ -198,9 +201,6 @@ uint64_t ADE7953::timestamp_() {
 }
 
 void ADE7953::get_data_() {
-
-  uint16_t u16 = 0;
-  int32_t s32 = 0;
 
   // Frequency
   this->read_u16_register16_(0x010E, &(this->data_.frequency));
@@ -240,6 +240,10 @@ void ADE7953::publish_data_() {
 
   // // Convert values to floats
   float val[LAST_IDX] = {0.0};
+
+  float PREF = ADE7953_WATTSEC_PREF * (this->data_.ts_diff < 10000 ? 10000 : this->data_.ts_diff) / 1000000.0f;
+  float EREF = ADE7953_WATTSEC_PREF * 3600.0f; // Ws to Wh
+
   val[FREQ] = 223750.0f / (1.0f + (float)this->data_.frequency);
   val[VRMS] = ((float)this->data_.voltage_rms) / ADE7953_UREF;
   val[IRMSA] = ((float)this->data_.current_rms_a) / ADE7953_IREF;
@@ -252,9 +256,6 @@ void ADE7953::publish_data_() {
   val[RENERGYB] = (float)this->data_.reactive_energy_b * (this->apinva_ ? -1.0f : 1.0f);
   val[APENERGYA] = (float)this->data_.apparent_energy_a * (this->apinva_ ? -1.0f : 1.0f);
   val[APENERGYB] = (float)this->data_.apparent_energy_b * (this->apinva_ ? -1.0f : 1.0f);
-
-  float PREF = ADE7953_WATTSEC_PREF * (this->data_.ts_diff < 10000 ? 10000 : this->data_.ts_diff) / 1000000.0f;
-  float EREF = ADE7953_WATTSEC_PREF * 3600.0f; // to Wh
 
   if (this->frequency_sensor_ != nullptr) this->frequency_sensor_->publish_state(val[FREQ]);
   if (this->voltage_sensor_ != nullptr) this->voltage_sensor_->publish_state(val[VRMS]);
@@ -271,8 +272,8 @@ void ADE7953::publish_data_() {
   if (this->reactive_power_a_sensor_ != nullptr) {
     this->reactive_power_a_sensor_->publish_state(( abs(val[RENERGYA] / PREF) < 5.0 ) ? 0.0f : (val[RENERGYA] / PREF) ); // publish readings below 5 VAr as 0.0 and  -0.0 VAr as 0.0
   }
-  if (this->active_power_b_sensor_ != nullptr) {
-    this->active_power_b_sensor_->publish_state(( abs(val[RENERGYB] / PREF) < 5.0 ) ? 0.0f : (val[RENERGYB] / PREF) ); // publish readings below 5 VAr as 0.0 and  -0.0 VAr as 0.0
+  if (this->reactive_power_b_sensor_ != nullptr) {
+    this->reactive_power_b_sensor_->publish_state(( abs(val[RENERGYB] / PREF) < 5.0 ) ? 0.0f : (val[RENERGYB] / PREF) ); // publish readings below 5 VAr as 0.0 and  -0.0 VAr as 0.0
   }
   if (this->apparent_power_a_sensor_ != nullptr) {
     this->apparent_power_a_sensor_->publish_state(( abs(val[APENERGYA] / PREF) < 5.0 ) ? 0.0f : (val[APENERGYA] / PREF) ); // publish readings below 5 VA as 0.0 and  -0.0 VA as 0.0
@@ -288,13 +289,14 @@ void ADE7953::publish_data_() {
     this->active_energy_b_total += (val[AENERGYB] / EREF);
     this->active_energy_b_sensor_->publish_state(this->active_energy_b_total);
   }
+  // TODO: add reactive and apparent energy
 }
 
 void ADE7953::update() {
   if (!this->is_setup_)
     return;
 
-  uint64_t t[5] = {0};
+  uint64_t t[3] = {0};
   uint8_t ti = 0;
   t[ti++] = timestamp_();
   // ESP_LOGD(TAG, "[%lld] Update loop started", t[0]);

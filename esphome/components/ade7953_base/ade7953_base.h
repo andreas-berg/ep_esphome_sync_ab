@@ -62,7 +62,7 @@ struct ADE7953DataStruct {
   bool ready = false;
 };
 
-class ADE7953 : public PollingComponent, public sensor::Sensor {
+class ADE7953 : public PollingComponent {
  public:
   // Set PGA input gains: 0 1x, 1 2x, 0b10 4x
   void set_pga_v(uint8_t pga_v) { pga_v_ = pga_v; }
@@ -76,27 +76,27 @@ class ADE7953 : public PollingComponent, public sensor::Sensor {
   void set_awgain(uint32_t awgain) { awgain_ = awgain; }
   void set_bwgain(uint32_t bwgain) { bwgain_ = bwgain; }
 
-  // Set active power +/- inversion 
+  // Set active power +/- inversion
   void set_apinva(bool apinva) { apinva_ = apinva; }
   void set_apinvb(bool apinvb) { apinvb_ = apinvb; }
 
-  void set_voltage_sensor(sensor::Sensor *voltage_sensor) { voltage_sensor_ = voltage_sensor; }
-  void set_frequency_sensor(sensor::Sensor *frequency_sensor) { frequency_sensor_ = frequency_sensor; }
+  void set_voltage_sensor(sensor::Sensor *sens) { voltage_sensor_ = sens; }
+  void set_frequency_sensor(sensor::Sensor *sens) { frequency_sensor_ = sens; }
 
-  void set_power_factor_a_sensor(sensor::Sensor *power_factor_a) { power_factor_a_sensor_ = power_factor_a; }
-  void set_power_factor_b_sensor(sensor::Sensor *power_factor_b) { power_factor_b_sensor_ = power_factor_b; }
+  void set_power_factor_a_sensor(sensor::Sensor *sens) { power_factor_a_sensor_ = sens; }
+  void set_power_factor_b_sensor(sensor::Sensor *sens) { power_factor_b_sensor_ = sens; }
 
-  void set_current_a_sensor(sensor::Sensor *current_a_sensor) { current_a_sensor_ = current_a_sensor; }
-  void set_current_b_sensor(sensor::Sensor *current_b_sensor) { current_b_sensor_ = current_b_sensor; }
+  void set_current_a_sensor(sensor::Sensor *sens) { current_a_sensor_ = sens; }
+  void set_current_b_sensor(sensor::Sensor *sens) { current_b_sensor_ = sens; }
 
-  void set_apparent_power_a_sensor(sensor::Sensor *apparent_power_a) { apparent_power_a_sensor_ = apparent_power_a; }
-  void set_apparent_power_b_sensor(sensor::Sensor *apparent_power_b) { apparent_power_b_sensor_ = apparent_power_b; }
+  void set_apparent_power_a_sensor(sensor::Sensor *sens) { apparent_power_a_sensor_ = sens; }
+  void set_apparent_power_b_sensor(sensor::Sensor *sens) { apparent_power_b_sensor_ = sens; }
 
   void set_active_power_a_sensor(sensor::Sensor *sens) { active_power_a_sensor_ = sens; }
   void set_active_power_b_sensor(sensor::Sensor *sens) { active_power_b_sensor_ = sens; }
 
-  void set_reactive_power_a_sensor(sensor::Sensor *reactive_power_a) { reactive_power_a_sensor_ = reactive_power_a; }
-  void set_reactive_power_b_sensor(sensor::Sensor *reactive_power_b) { reactive_power_b_sensor_ = reactive_power_b; }
+  void set_reactive_power_a_sensor(sensor::Sensor *sens) { reactive_power_a_sensor_ = sens; }
+  void set_reactive_power_b_sensor(sensor::Sensor *sens) { reactive_power_b_sensor_ = sens; }
 
   void set_active_energy_a_sensor(sensor::Sensor *sens) { active_energy_a_sensor_ = sens; }
   void set_active_energy_b_sensor(sensor::Sensor *sens) { active_energy_b_sensor_ = sens; }
