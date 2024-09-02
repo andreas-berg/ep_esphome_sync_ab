@@ -156,6 +156,7 @@ class ADE7953 : public PollingComponent {
   uint64_t timestamp_();
   void get_data_();
   void publish_data_();
+  void chip_init();
 
   template<typename F> void update_sensor_from_u8_register16_(sensor::Sensor *sensor, uint16_t a_register, F &&f);
   template<typename F> void update_sensor_from_u16_register16_(sensor::Sensor *sensor, uint16_t a_register, F &&f);
