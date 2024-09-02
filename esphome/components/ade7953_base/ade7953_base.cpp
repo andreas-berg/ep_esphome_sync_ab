@@ -252,10 +252,10 @@ void ADE7953::publish_data_() {
   val[PFB] = ((float)this->data_.power_factor_b) / (0x7FFF / 100.0f);
   val[AENERGYA] = (float)this->data_.active_energy_a * (this->apinva_ ? -1.0f : 1.0f);
   val[AENERGYB] = (float)this->data_.active_energy_b * (this->apinva_ ? -1.0f : 1.0f);
-  val[RENERGYA] = (float)this->data_.reactive_energy_a * (this->apinva_ ? -1.0f : 1.0f);
-  val[RENERGYB] = (float)this->data_.reactive_energy_b * (this->apinva_ ? -1.0f : 1.0f);
-  val[APENERGYA] = (float)this->data_.apparent_energy_a * (this->apinva_ ? -1.0f : 1.0f);
-  val[APENERGYB] = (float)this->data_.apparent_energy_b * (this->apinva_ ? -1.0f : 1.0f);
+  val[RENERGYA] = (float)this->data_.reactive_energy_a;
+  val[RENERGYB] = (float)this->data_.reactive_energy_b;
+  val[APENERGYA] = (float)this->data_.apparent_energy_a;
+  val[APENERGYB] = (float)this->data_.apparent_energy_b;
 
   if (this->frequency_sensor_ != nullptr) this->frequency_sensor_->publish_state(val[FREQ]);
   if (this->voltage_sensor_ != nullptr) this->voltage_sensor_->publish_state(val[VRMS]);
