@@ -6,6 +6,13 @@
 
 #include <vector>
 
+#if defined(USE_ESP_IDF) && USE_ESP_IDF_VERSION_CODE >= VERSION_CODE(5, 0, 0)
+#ifndef USE_GPTIMER
+#define USE_GPTIMER
+#endif // USE_GPTIMER
+#include "driver/gptimer.h"
+#endif  // defined(USE_ESP_IDF) && USE_ESP_IDF_VERSION_CODE >= VERSION_CODE(5, 0, 0)
+
 namespace esphome {
 namespace ade7953_base {
 
@@ -18,28 +25,45 @@ static const uint8_t PGA_IB_8 =
 
 static const uint32_t AIGAIN_32 =
     0x380;  // AIGAIN, (R/W)   Default: 0x400000, Unsigned,Current channel gain (Current Channel A)(32 bit)
-static const uint32_t AVGAIN_32 = 0x381;  // AVGAIN, (R/W)   Default: 0x400000, Unsigned,Voltage channel gain(32 bit)
+static const uint32_t AVGAIN_32 =
+    0x381;  // AVGAIN, (R/W)   Default: 0x400000, Unsigned,Voltage channel gain(32 bit)
 static const uint32_t AWGAIN_32 =
     0x382;  // AWGAIN, (R/W)   Default: 0x400000, Unsigned,Active power gain (Current Channel A)(32 bit)
 static const uint32_t AVARGAIN_32 =
-    0x383;  // AVARGAIN, (R/W) Default: 0x400000, Unsigned, Reactive power gain (Current Channel A)(32 bit)
+    0x383;  // AVARGAIN, (R/W) Default: 0x400000, Unsigned,Reactive power gain (Current Channel A)(32 bit)
 static const uint32_t AVAGAIN_32 =
     0x384;  // AVAGAIN, (R/W)  Default: 0x400000, Unsigned,Apparent power gain (Current Channel A)(32 bit)
 
 static const uint32_t BIGAIN_32 =
     0x38C;  // BIGAIN, (R/W)   Default: 0x400000, Unsigned,Current channel gain (Current Channel B)(32 bit)
-static const uint32_t BVGAIN_32 = 0x38D;  // BVGAIN, (R/W)   Default: 0x400000, Unsigned,Voltage channel gain(32 bit)
+static const uint32_t BVGAIN_32 =
+    0x38D;  // BVGAIN, (R/W)   Default: 0x400000, Unsigned,Voltage channel gain(32 bit)
 static const uint32_t BWGAIN_32 =
     0x38E;  // BWGAIN, (R/W)   Default: 0x400000, Unsigned,Active power gain (Current Channel B)(32 bit)
 static const uint32_t BVARGAIN_32 =
-    0x38F;  // BVARGAIN, (R/W) Default: 0x400000, Unsigned, Reactive power gain (Current Channel B)(32 bit)
+    0x38F;  // BVARGAIN, (R/W) Default: 0x400000, Unsigned,Reactive power gain (Current Channel B)(32 bit)
 static const uint32_t BVAGAIN_32 =
     0x390;  // BVAGAIN, (R/W)  Default: 0x400000, Unsigned,Apparent power gain (Current Channel B)(32 bit)
 
+struct ADE7953DataStruct {
+  uint16_t frequency = 0;
+  uint32_t voltage_rms = 0;
+  uint32_t current_rms_a = 0;
+  uint32_t current_rms_b = 0;
+  int16_t power_factor_a = 0;
+  int16_t power_factor_b = 0;
+  int32_t active_energy_a = 0;
+  int32_t active_energy_b = 0;
+  int32_t reactive_energy_a = 0;
+  int32_t reactive_energy_b = 0;
+  int32_t apparent_energy_a = 0;
+  int32_t apparent_energy_b = 0;
+  uint64_t ts_diff = 0;
+  bool ready = false;
+};
+
 class ADE7953 : public PollingComponent, public sensor::Sensor {
  public:
-  void set_irq_pin(InternalGPIOPin *irq_pin) { irq_pin_ = irq_pin; }
-
   // Set PGA input gains: 0 1x, 1 2x, 0b10 4x
   void set_pga_v(uint8_t pga_v) { pga_v_ = pga_v; }
   void set_pga_ia(uint8_t pga_ia) { pga_ia_ = pga_ia; }
@@ -52,7 +76,9 @@ class ADE7953 : public PollingComponent, public sensor::Sensor {
   void set_awgain(uint32_t awgain) { awgain_ = awgain; }
   void set_bwgain(uint32_t bwgain) { bwgain_ = bwgain; }
 
-  void set_use_acc_energy_regs(bool use_acc_energy_regs) { use_acc_energy_regs_ = use_acc_energy_regs; }
+  // Set active power +/- inversion 
+  void set_apinva(bool apinva) { apinva_ = apinva; }
+  void set_apinvb(bool apinvb) { apinvb_ = apinvb; }
 
   void set_voltage_sensor(sensor::Sensor *voltage_sensor) { voltage_sensor_ = voltage_sensor; }
   void set_frequency_sensor(sensor::Sensor *frequency_sensor) { frequency_sensor_ = frequency_sensor; }
@@ -66,15 +92,14 @@ class ADE7953 : public PollingComponent, public sensor::Sensor {
   void set_apparent_power_a_sensor(sensor::Sensor *apparent_power_a) { apparent_power_a_sensor_ = apparent_power_a; }
   void set_apparent_power_b_sensor(sensor::Sensor *apparent_power_b) { apparent_power_b_sensor_ = apparent_power_b; }
 
-  void set_active_power_a_sensor(sensor::Sensor *active_power_a_sensor) {
-    active_power_a_sensor_ = active_power_a_sensor;
-  }
-  void set_active_power_b_sensor(sensor::Sensor *active_power_b_sensor) {
-    active_power_b_sensor_ = active_power_b_sensor;
-  }
+  void set_active_power_a_sensor(sensor::Sensor *sens) { active_power_a_sensor_ = sens; }
+  void set_active_power_b_sensor(sensor::Sensor *sens) { active_power_b_sensor_ = sens; }
 
   void set_reactive_power_a_sensor(sensor::Sensor *reactive_power_a) { reactive_power_a_sensor_ = reactive_power_a; }
   void set_reactive_power_b_sensor(sensor::Sensor *reactive_power_b) { reactive_power_b_sensor_ = reactive_power_b; }
+
+  void set_active_energy_a_sensor(sensor::Sensor *sens) { active_energy_a_sensor_ = sens; }
+  void set_active_energy_b_sensor(sensor::Sensor *sens) { active_energy_b_sensor_ = sens; }
 
   void setup() override;
 
@@ -82,21 +107,34 @@ class ADE7953 : public PollingComponent, public sensor::Sensor {
 
   void update() override;
 
+  float get_setup_priority() const override { return setup_priority::DATA; }
+
  protected:
-  InternalGPIOPin *irq_pin_{nullptr};
+#ifdef USE_GPTIMER
+  gptimer_handle_t gptimer = NULL;
+#endif // USE_GPTIMER
+
   bool is_setup_{false};
   sensor::Sensor *voltage_sensor_{nullptr};
   sensor::Sensor *frequency_sensor_{nullptr};
   sensor::Sensor *current_a_sensor_{nullptr};
   sensor::Sensor *current_b_sensor_{nullptr};
+  sensor::Sensor *power_factor_a_sensor_{nullptr};
+  sensor::Sensor *power_factor_b_sensor_{nullptr};
   sensor::Sensor *apparent_power_a_sensor_{nullptr};
   sensor::Sensor *apparent_power_b_sensor_{nullptr};
   sensor::Sensor *active_power_a_sensor_{nullptr};
   sensor::Sensor *active_power_b_sensor_{nullptr};
   sensor::Sensor *reactive_power_a_sensor_{nullptr};
   sensor::Sensor *reactive_power_b_sensor_{nullptr};
-  sensor::Sensor *power_factor_a_sensor_{nullptr};
-  sensor::Sensor *power_factor_b_sensor_{nullptr};
+  sensor::Sensor *active_energy_a_sensor_{nullptr};
+  sensor::Sensor *active_energy_b_sensor_{nullptr};
+
+  float active_energy_a_total = 0.0f;
+  float active_energy_b_total = 0.0f;
+  bool apinva_ = false;
+  bool apinvb_ = false;
+
   uint8_t pga_v_;
   uint8_t pga_ia_;
   uint8_t pga_ib_;
@@ -105,20 +143,37 @@ class ADE7953 : public PollingComponent, public sensor::Sensor {
   uint32_t bigain_;
   uint32_t awgain_;
   uint32_t bwgain_;
-  bool use_acc_energy_regs_{false};
-  uint32_t last_update_;
+  uint32_t ap_noload_;
+  uint32_t var_noload_;
+  uint32_t va_noload_;
+  uint32_t accmode_;
+  uint16_t config_;
+  uint8_t lcycmode_;
 
-  virtual bool ade_write_8(uint16_t reg, uint8_t value) = 0;
+  ADE7953DataStruct data_;
 
-  virtual bool ade_write_16(uint16_t reg, uint16_t value) = 0;
+  uint64_t last_update_;
+  uint64_t timestamp_();
+  void get_data_();
+  void publish_data_();
 
-  virtual bool ade_write_32(uint16_t reg, uint32_t value) = 0;
+  template<typename F> void update_sensor_from_u8_register16_(sensor::Sensor *sensor, uint16_t a_register, F &&f);
+  template<typename F> void update_sensor_from_u16_register16_(sensor::Sensor *sensor, uint16_t a_register, F &&f);
+  template<typename F> void update_sensor_from_s16_register16_(sensor::Sensor *sensor, uint16_t a_register, F &&f);
+  template<typename F> void update_sensor_from_u32_register16_(sensor::Sensor *sensor, uint16_t a_register, float absmin, F &&f);
+  template<typename F> void update_sensor_from_s32_register16_(sensor::Sensor *sensor, uint16_t a_register, float absmin, F &&f);
 
-  virtual bool ade_read_8(uint16_t reg, uint8_t *value) = 0;
+  virtual void read_u8_register16_(uint16_t reg, uint8_t *value) = 0;
+  virtual void read_s16_register16_(uint16_t reg, int16_t *value) = 0;
+  virtual void read_u16_register16_(uint16_t reg, uint16_t *value) = 0;
+  virtual void read_s32_register16_(uint16_t reg, int32_t *value) = 0;
+  virtual void read_u32_register16_(uint16_t reg, uint32_t *value) = 0;
 
-  virtual bool ade_read_16(uint16_t reg, uint16_t *value) = 0;
+  virtual void write_u8_register16_(uint16_t reg, uint8_t value) = 0;
+  virtual void write_u16_register16_(uint16_t reg, uint16_t value) = 0;
+  virtual void write_u32_register16_(uint16_t reg, uint32_t value) = 0;
+  // virtual void write_s32_register16_(uint16_t a_register, int32_t value) = 0;
 
-  virtual bool ade_read_32(uint16_t reg, uint32_t *value) = 0;
 };
 
 }  // namespace ade7953_base

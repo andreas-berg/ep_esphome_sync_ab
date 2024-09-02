@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome.components import sensor
 from esphome import pins
 from esphome.const import (
-    CONF_IRQ_PIN,
+    # CONF_IRQ_PIN,
     CONF_VOLTAGE,
     CONF_FREQUENCY,
     CONF_VOLTAGE_GAIN,
@@ -14,7 +14,9 @@ from esphome.const import (
     DEVICE_CLASS_POWER_FACTOR,
     DEVICE_CLASS_VOLTAGE,
     DEVICE_CLASS_FREQUENCY,
+    DEVICE_CLASS_ENERGY,
     STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL_INCREASING,
     UNIT_VOLT,
     UNIT_HERTZ,
     UNIT_AMPERE,
@@ -22,6 +24,7 @@ from esphome.const import (
     UNIT_WATT,
     UNIT_VOLT_AMPS_REACTIVE,
     UNIT_PERCENT,
+    UNIT_WATT_HOURS,
 )
 
 CONF_CURRENT_A = "current_a"
@@ -41,7 +44,10 @@ CONF_CURRENT_GAIN_A = "current_gain_a"
 CONF_CURRENT_GAIN_B = "current_gain_b"
 CONF_ACTIVE_POWER_GAIN_A = "active_power_gain_a"
 CONF_ACTIVE_POWER_GAIN_B = "active_power_gain_b"
-CONF_USE_ACCUMULATED_ENERGY_REGISTERS = "use_accumulated_energy_registers"
+CONF_ACTIVE_ENERGY_A = "active_energy_a"
+CONF_ACTIVE_ENERGY_B = "active_energy_b"
+CONF_ACTIVE_POWER_INVERTED_A = "active_power_inverted_a"
+CONF_ACTIVE_POWER_INVERTED_B = "active_power_inverted_b"
 PGA_GAINS = {
     "1x": 0b000,
     "2x": 0b001,
@@ -56,7 +62,7 @@ ADE7953 = ade7953_base_ns.class_("ADE7953", cg.PollingComponent)
 
 ADE7953_CONFIG_SCHEMA = cv.Schema(
     {
-        cv.Optional(CONF_IRQ_PIN): pins.internal_gpio_input_pin_schema,
+        # cv.Optional(CONF_IRQ_PIN): pins.internal_gpio_input_pin_schema,
         cv.Optional(CONF_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
             accuracy_decimals=1,
@@ -129,6 +135,18 @@ ADE7953_CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_POWER_FACTOR,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
+        cv.Optional(CONF_ACTIVE_ENERGY_A): sensor.sensor_schema(
+            unit_of_measurement=UNIT_WATT_HOURS,
+            accuracy_decimals=2,
+            device_class=DEVICE_CLASS_ENERGY,
+            state_class=STATE_CLASS_TOTAL_INCREASING,
+        ),
+        cv.Optional(CONF_ACTIVE_ENERGY_B): sensor.sensor_schema(
+            unit_of_measurement=UNIT_WATT_HOURS,
+            accuracy_decimals=2,
+            device_class=DEVICE_CLASS_ENERGY,
+            state_class=STATE_CLASS_TOTAL_INCREASING,
+        ),
         cv.Optional(
             CONF_VOLTAGE_PGA_GAIN,
             default="1x",
@@ -156,17 +174,14 @@ ADE7953_CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_ACTIVE_POWER_GAIN_B, default=0x400000): cv.hex_int_range(
             min=0x100000, max=0x800000
         ),
-        cv.Optional(CONF_USE_ACCUMULATED_ENERGY_REGISTERS, default=False): cv.boolean,
+        cv.Optional(CONF_ACTIVE_POWER_INVERTED_A, default=False): cv.boolean,
+        cv.Optional(CONF_ACTIVE_POWER_INVERTED_B, default=False): cv.boolean,
     }
 ).extend(cv.polling_component_schema("60s"))
 
 
 async def register_ade7953(var, config):
     await cg.register_component(var, config)
-
-    if irq_pin_config := config.get(CONF_IRQ_PIN):
-        irq_pin = await cg.gpio_pin_expression(irq_pin_config)
-        cg.add(var.set_irq_pin(irq_pin))
 
     cg.add(var.set_pga_v(PGA_GAINS[config.get(CONF_VOLTAGE_PGA_GAIN)]))
     cg.add(var.set_pga_ia(PGA_GAINS[config.get(CONF_CURRENT_PGA_GAIN_A)]))
@@ -176,9 +191,8 @@ async def register_ade7953(var, config):
     cg.add(var.set_bigain(config.get(CONF_CURRENT_GAIN_B)))
     cg.add(var.set_awgain(config.get(CONF_ACTIVE_POWER_GAIN_A)))
     cg.add(var.set_bwgain(config.get(CONF_ACTIVE_POWER_GAIN_B)))
-    cg.add(
-        var.set_use_acc_energy_regs(config.get(CONF_USE_ACCUMULATED_ENERGY_REGISTERS))
-    )
+    cg.add(var.set_apinva(config.get(CONF_ACTIVE_POWER_INVERTED_A)))
+    cg.add(var.set_apinvb(config.get(CONF_ACTIVE_POWER_INVERTED_B)))
 
     for key in [
         CONF_VOLTAGE,
@@ -193,6 +207,8 @@ async def register_ade7953(var, config):
         CONF_ACTIVE_POWER_B,
         CONF_REACTIVE_POWER_A,
         CONF_REACTIVE_POWER_B,
+        CONF_ACTIVE_ENERGY_A,
+        CONF_ACTIVE_ENERGY_B,
     ]:
         if key not in config:
             continue
