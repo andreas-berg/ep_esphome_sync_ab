@@ -86,9 +86,9 @@ void ADE7953::chip_init_() {
   this->write_u32_register16_(0x0001, 0x07);                       // ADE7953_DISNOLOAD on, Disable no load detection, required before setting thresholds
   this->write_u32_register16_(0x0303, ADE7953_NO_LOAD_THRESHOLD);  // AP_NOLOAD, Set no load treshold for active power, default: 0x00E419 (58393)
   // this->write_u32_register16_(0x0303, 0x00E419);  // AP_NOLOAD, Set default: 0x00E419 (58393)
-  // // this->write_u32_register16_(0x0304, ADE7953_NO_LOAD_THRESHOLD);  // VAR_NOLOAD, Set no load treshold for reactive power, default: 0x00E419 (58393)
+  this->write_u32_register16_(0x0304, ADE7953_NO_LOAD_THRESHOLD);  // VAR_NOLOAD, Set no load treshold for reactive power, default: 0x00E419 (58393)
   // this->write_u32_register16_(0x0304, 0x00E419);  // VAR_NOLOAD, Set default: 0x00E419 (58393)
-  // // this->write_u32_register16_(0x0305, 0x0);                        // VA_NOLOAD, Set no load treshold for apparent power, default: 0x000000
+  this->write_u32_register16_(0x0305, 0x0);                        // VA_NOLOAD, Set no load treshold for apparent power, default: 0x000000
   this->write_u32_register16_(0x0001, 0x0);                        // ADE7953_DISNOLOAD off, Enable no load detection
 
   // Set gains
