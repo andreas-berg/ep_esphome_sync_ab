@@ -140,7 +140,7 @@ class SPIDelegateHw : public SPIDelegate {
         debug_hex += debug_buf;
       }
       ESP_LOGVV(TAG, "[%u] TX: DATA[%02d bytes]: 0x%s %s", t, length, debug_hex.c_str(), length > LOG_BUF_MAX_LEN ? "..." : "");
-    }    
+    }
 #endif
 
     desc.base.flags = SPI_TRANS_VARIABLE_ADDR | SPI_TRANS_VARIABLE_CMD | SPI_TRANS_VARIABLE_DUMMY;
@@ -249,7 +249,7 @@ class SPIDelegateHw : public SPIDelegate {
 #endif
 
   }
-  
+
   void transfer(uint8_t *ptr, size_t length) override { this->transfer(ptr, ptr, length); }
 
   uint8_t transfer(uint8_t data) override {

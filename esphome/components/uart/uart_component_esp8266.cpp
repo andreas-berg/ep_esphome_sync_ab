@@ -147,6 +147,20 @@ void ESP8266UartComponent::check_logger_conflict() {
 }
 
 void ESP8266UartComponent::write_array(const uint8_t *data, size_t len) {
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    int64_t t = micros();
+    uint8_t LOG_BUF_MAX_LEN = 8;
+    char debug_buf[LOG_BUF_MAX_LEN];
+    std::string debug_hex;
+    if(data != nullptr && len > 0) {
+      for (size_t i = 0; i < len && i < LOG_BUF_MAX_LEN; i++) {
+        snprintf(debug_buf, sizeof(debug_buf), "%02X", data[i]);
+        debug_hex += debug_buf;
+      }
+      ESP_LOGVV(TAG, "[%u] TX: DATA[%02d bytes]: 0x%s %s", t, len, debug_hex.c_str(), len > LOG_BUF_MAX_LEN ? "..." : "");
+    }
+#endif
+
   if (this->hw_serial_ != nullptr) {
     this->hw_serial_->write(data, len);
   } else {
@@ -178,6 +192,20 @@ bool ESP8266UartComponent::read_array(uint8_t *data, size_t len) {
     for (size_t i = 0; i < len; i++)
       data[i] = this->sw_serial_->read_byte();
   }
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    int64_t t = micros();
+    uint8_t LOG_BUF_MAX_LEN = 8;
+    char debug_buf[LOG_BUF_MAX_LEN];
+    std::string debug_hex;
+    if(data != nullptr && len > 0) {
+      for (size_t i = 0; i < len && i < LOG_BUF_MAX_LEN; i++) {
+        snprintf(debug_buf, sizeof(debug_buf), "%02X", data[i]);
+        debug_hex += debug_buf;
+      }
+      ESP_LOGVV(TAG, "[%u] RX: DATA[%02d bytes]: 0x%s %s", t, len, debug_hex.c_str(), length > LOG_BUF_MAX_LEN ? "..." : "");
+    }
+#endif
+
 #ifdef USE_UART_DEBUGGER
   for (size_t i = 0; i < len; i++) {
     this->debug_callback_.call(UART_DIRECTION_RX, data[i]);
