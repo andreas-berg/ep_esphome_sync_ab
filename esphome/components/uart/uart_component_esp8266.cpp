@@ -202,7 +202,7 @@ bool ESP8266UartComponent::read_array(uint8_t *data, size_t len) {
         snprintf(debug_buf, sizeof(debug_buf), "%02X", data[i]);
         debug_hex += debug_buf;
       }
-      ESP_LOGVV(TAG, "[%u] RX: DATA[%02d bytes]: 0x%s %s", t, len, debug_hex.c_str(), length > LOG_BUF_MAX_LEN ? "..." : "");
+      ESP_LOGVV(TAG, "[%u] RX: DATA[%02d bytes]: 0x%s %s", t, len, debug_hex.c_str(), len > LOG_BUF_MAX_LEN ? "..." : "");
     }
 #endif
 
